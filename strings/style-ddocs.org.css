@@ -1,0 +1,353 @@
+div.breadcrumbs .alpha a
+{
+    text-decoration: none;
+    text-align: center;
+    float: left;
+    width: 1em;
+    height: 1em;
+    padding: 2.5px;
+    display: block;
+    font-size: 80%;
+    font-family: Lucida Sans Typewriter,Lucida Console,monaco,Bitstream Vera Sans Mono,monospace;
+    margin: 0px 1.5px 3px 1.5px;
+    border: 1px solid #d5d5d5;
+}
+
+div.breadcrumbs div.alpha
+{
+    float: left;
+    max-width: 80%;
+}
+
+div.breadcrumbs .alpha a:hover
+{
+    background-color: #d5d5d5;
+    color: #333;
+}
+
+/* alphabetic anchors need to compensate for the fixed-pos breadcrumbs */
+a.letter
+{
+    display: block;
+    position: relative;
+    top: -48px;
+    visibility: hidden;
+}
+
+div.ddocs-content
+{
+    margin-top: 48px;
+}
+
+@media only screen and (max-width: 800px)
+{
+    div.breadcrumbs   { height: 80px; }
+    div.breadcrumbs div.alpha
+    {
+        margin-left: auto;
+        margin-right: auto;
+        float: none;
+    }
+    div.breadcrumbs div.title
+    {
+        width: 100%;
+        font-size: 75%;
+        font-weight: bold;
+        text-align: center;
+        clear: both;
+    }
+    div.ddocs-content { margin-top: 80px; }
+    a.letter          { top: -80px; }
+}
+
+@media only screen and (max-width: 600px)
+{
+    div.breadcrumbs div.alpha
+    {
+        max-width: 100%;
+    }
+}
+
+@media only screen and (min-width: 1200px)
+{
+    div.breadcrumbs .alpha a
+    {
+        padding: 3.5px;
+        font-size: 90%;
+        margin: 0px 2px 4px 2px;
+        border: 1px solid #d5d5d5;
+    }
+}
+
+
+div.header
+{
+    margin-top: 4em;
+    display: flex;
+    margin-left: 10%;
+    margin-right: 10%;
+    width: 80%;
+}
+
+@media only screen and (max-width: 960px)
+{
+    div.header
+    {
+        flex-direction: column;
+    }
+    div.main-description
+    {
+        width: 100% !important;
+    }
+}
+
+h1, h2
+{
+    font-weight: lighter;
+}
+
+div.main-description
+{
+    width: 150%;
+    font-size: 115%;
+    margin-right: 2em;
+    font-weight: lighter;
+}
+
+
+div.main-description h1
+{
+    margin: 0 0 1em 0;
+    font-size: 170%;
+}
+
+div.main-description ul
+{
+    font-size: 68%;
+    color: #333;
+    line-height: 1.8em;
+    font-weight: normal;
+}
+
+div.project-developers
+{
+    border-radius: 3px;
+    border: 1px solid #d5d5d5;
+    font-size: 70%;
+    color: #333;
+    padding: 2px 0.5em;
+}
+
+div.project-developers h2
+{
+    font-size: 120%;
+    margin: 0;
+}
+
+div.project-developers ul
+{
+    padding-left: 1em;
+}
+
+a.prev, a.next
+{
+    color: #333;
+    position: fixed;
+    top: 50%;
+    text-decoration: none;
+}
+
+a.prev:hover, a.next:hover
+{
+    color: #DAAF07;
+}
+
+a.prev:before, a.next:after
+{
+    font-family: serif;
+    font-size: 170%;
+    transform:scale(1.5, 3);
+    display: inline-block;
+}
+a.prev { left: 0.5%; }
+a.next { right: 0.5%; }
+a.prev:before { content: "‹"; }
+a.next:after  { content: "›"; }
+
+a.prev span
+{
+    transform: rotate(-90deg);
+    margin-left: -0.5em;
+    display: inline-block;
+}
+a.next span
+{
+    transform: rotate(90deg);
+    margin-right: -0.5em;
+    display: inline-block;
+}
+
+
+/** PACKAGE LIST TABLE **/
+
+table.package-list
+{
+    margin-left: 10%;
+    margin-right: 10%;
+    border-top: 1px solid #d5d5d5;
+    margin-top: 3em;
+    width: 80%;
+    font-size: 68%;
+    color: #333;
+    line-height: 1.8em;
+    border-collapse: collapse;
+}
+
+table.package-list a
+{
+    text-decoration: none;
+}
+
+tr:nth-child(even)
+{
+    line-height: 1.4em;
+    font-size: 85%;
+}
+
+tr:nth-child(even) td
+{
+    border-bottom: 1px dashed #d5d5d5;
+    /* ensure the description text can wrap, even though links can't */
+    white-space: normal !important;
+}
+
+ul.errors
+{
+    list-style-type: none;
+}
+
+ul.errors li
+{
+    color: darkred;
+}
+
+tr td:first-child
+{
+    vertical-align: top;
+}
+
+/* prevent package names from wrapping, make the cell wider instead */
+@media only screen and (min-width: 800px)
+{
+    tr td:first-child
+    {
+        white-space: nowrap;
+    }
+}
+
+tr td:first-child span
+{
+    border: 1px solid #d5d5d5;
+    font-weight: bold;
+    padding: 2px 4px 2px 2px;
+    border-radius: 3px 0px 0px 3px;
+}
+
+tr td:first-child a
+{
+    background-color: #e5e5e5;
+    padding: 2px;
+    border-left: none;
+    border-radius: 0px 3px 3px 0px;
+}
+
+
+tr td a, tr td span, .main-description ul span
+{
+    border-radius: 3px 0px 0px 3px;
+    border: 1px solid #c5c5c5;
+    padding: 2px;
+}
+
+tr td a
+{
+    color: #333;
+}
+@media only screen and (min-width: 800px)
+{
+    tr td a
+    {
+        white-space: nowrap;
+    }
+}
+
+tr td a.txz
+{
+    border-left: none;
+    border-radius: 0;
+    background-color: #e5e5e5;
+}
+
+tr td a._7z
+{
+    border-left: none;
+    border-radius: 0px 3px 3px 0px;
+    background-color: #e5e5e5;
+}
+
+.logic-error
+{
+    background-color: purple;
+}
+
+.obsolete
+{
+    color: gray;
+}
+
+.error
+{
+    border-radius: 3px;
+    background-color: darkred;
+    color: white;
+}
+
+.prerelease, .prerelease-old
+{
+    border-style: dotted !important;
+}
+
+.prerelease-old
+{
+    color: gray;
+}
+
+.latest
+{
+    background-color: #DAAF07;
+}
+
+.latest-old
+{
+    background-color: #f0e080;
+}
+
+.master, .branch
+{
+    border-style: dashed !important;
+}
+
+.master
+{
+    background-color: white;
+}
+
+.branch
+{
+    color: gray;
+}
+
+tr td a:hover
+{
+    background-color: #d0d8f8;
+}

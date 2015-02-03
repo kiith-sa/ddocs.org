@@ -1,0 +1,17 @@
+{
+    "name": "ddocs.org",
+    "description": "A minimal D application.",
+    "copyright": "Copyright © 2015, kiith-sa",
+    "authors": ["kiith-sa"],
+    "dependencies": {
+        "dyaml": ">=0.5.0",
+        "semver": ">=0.2.0",
+        "dmarkdown": ">=0.2.0"
+    },
+    "dflags": [
+        "-Jstrings"
+    ],
+    "libs": [
+        "curl"
+    ]
+}
