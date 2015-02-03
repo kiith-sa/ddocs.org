@@ -144,7 +144,7 @@ struct Config
      * page, so the actual number of packages on a page may be higher, but if there are
      * more than this many packages, the next starting character will be on another page.
      */
-    uint minPackagesPerPage = 150;
+    uint minPackagesPerPage = 125;
 
     this(string[] args, ref Context context)
     {
