@@ -30,6 +30,8 @@ a.letter
 {
     display: block;
     position: relative;
+    padding: 0 !important;
+    border: none;
     top: -48px;
     visibility: hidden;
 }
@@ -108,8 +110,8 @@ h1, h2
 
 div.main-description
 {
-    width: 150%;
-    font-size: 115%;
+    width: 160%;
+    font-size: 110%;
     margin-right: 2em;
     font-weight: lighter;
 }
@@ -118,7 +120,8 @@ div.main-description
 div.main-description h1
 {
     margin: 0 0 1em 0;
-    font-size: 170%;
+    font-size: 160%;
+    text-align: center;
 }
 
 div.main-description ul
@@ -129,11 +132,44 @@ div.main-description ul
     font-weight: normal;
 }
 
+.main-description .links 
+{
+    text-align: center;
+}
+
+.main-description .links a
+{
+    font-size: 85%;
+    text-decoration: none;
+    background-color: #9F3007;
+    color: #f5f5f5;
+    padding: 2px 8px;
+    border-right: 1px solid #f5f5f5;
+}
+
+.main-description .links a:hover
+{
+    background-color: #DAAF07;
+    color: #333;
+}
+
+.main-description .links a:first-child
+{
+    border-radius: 3px 0px 0px 3px;
+}
+
+.main-description .links a:last-child
+{
+    border-right: none;
+    border-radius: 0px 3px 3px 0px;
+}
+
+
 div.project-developers
 {
     border-radius: 3px;
     border: 1px solid #d5d5d5;
-    font-size: 70%;
+    font-size: 77%;
     color: #333;
     padding: 2px 0.5em;
 }
@@ -199,7 +235,7 @@ table.package-list
     width: 80%;
     font-size: 68%;
     color: #333;
-    line-height: 1.8em;
+    line-height: 2em;
     border-collapse: collapse;
 }
 
@@ -275,7 +311,7 @@ tr td a
 }
 @media only screen and (min-width: 800px)
 {
-    tr td a
+    tr td a, tr td span
     {
         white-space: nowrap;
     }

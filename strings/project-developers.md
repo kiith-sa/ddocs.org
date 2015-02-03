@@ -19,16 +19,16 @@ To tweak the documentation generated for your project:
   your project. Use the `source` and `exclude` options in `hmod.cfg` to change this:
 
   ```
-  source=./source                    # a source directory
-  source=./subproject/source         # another source directory
-  exclude=./source/hidden-module.d   # exclude a module
-  exclude=./source/hidden-module2.d  # exclude another module
+  source=./source            # source directory
+  source=./subproject/source # another source directory
+  exclude=mypackage.hidden   # exclude a module/package
+  exclude=mypackage.hidden2  # exclude another module
   ```
 
 * Additional options that may be useful:
 
   ```
-  toc-additional=links.md  # a file with additional content for
-                           # the table of contents (e.g. links)
-  macros=macros.dd         # a file with user-defined DDoc macros to use
+  toc-additional=links.md # file with additional table of
+                          # contents content (e.g. links)
+  macros=macros.dd        # file with DDoc macros to use
   ```
