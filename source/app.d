@@ -77,6 +77,8 @@ struct Config
     string outputDirectory = "./public";
     /// Directory where DUB stores packages. Initialized by this().
     string dubDirectory = null;
+    /// Path to the YAML file to write diagnostic data to.
+    string diagnosticsPath = "./diagnostics.yaml";
     /** Maximum documentation age of non-branch package versions, in seconds.
      *
      * Documentation older than this will be regenerated.
@@ -177,7 +179,8 @@ struct Config
                "l|log-yaml-path",      &logYAMLPath,
                "D|disk-reserve-gib",   &diskReserveGiB,
                "m|packages-per-page",  &minPackagesPerPage,
-               "M|max-module-size",    &maxFileSizeK
+               "M|max-module-size",    &maxFileSizeK,
+               "d|diagnostics-path",   &diagnosticsPath
                );
         if(forceFullRebuild)
         {
@@ -280,7 +283,7 @@ Options:
                                     on a page may be higher, but if there are
                                     more than COUNT packages, the next starting
                                     character will be on another page.
-                                    Default: 150
+                                    Default: 125
     -M, --max-module-size KILOBYTES Maximum module file size for `hmod` to
                                     process. Any modules bigger than this will
                                     be ignored. Helps avoid huge RAM usage.
@@ -312,6 +315,10 @@ Options:
                                     have any documentation generated because of
                                     e.g. errors in dub.json or no source files.
     -S, --skip-archives             Don't generate documentation archives.
+    -d, --diagnostics-path PATH     Path of a YAML file to write diagnostics
+                                    data (execution time, disk space usage,
+                                    etc.) to.
+                                    Default: diagnostics.yaml
 -------------------------------------------------------------------------------
 )";
 
@@ -324,6 +331,47 @@ struct Context
 {
 private:
     import yaml;
+
+    /** Diagnostics stored in a `diagnostics.yaml` for every ddocs.run to determine how
+     * overhead evolves over time.
+     */
+    struct Diagnostics
+    {
+        // Can't measure disk usage because `du` is too slow - at least on ext4.
+        // Reconsider du when we run on different FS and/or an SSD.
+        // ulong dubCacheSizeM;
+        // ulong docsSizeM;
+        // ulong txzSizeM;
+        // ulong _7zSizeM;
+
+        /// Total run time.
+        ulong totalTimeS;
+        /// Time spent generating documentation, *including* archiving.
+        ulong docTimeS;
+        /// Time spent archiving only. `double` used because we add up small fractions.
+        double archiveTimeS = 0.0f;
+        /// Time spent generating hardlinks.
+        ulong hardlinkTimeS;
+        /// Maximum RAM usage of `hmod`.
+        ulong hmodRAMMaxK;
+
+        /// Finish gathering diagnostics and dump them to `config.diagnosticsPath`.
+        void finish(ref const Config config)
+        {
+            auto file = File(config.diagnosticsPath, "a");
+
+            import std.datetime;
+            file.writefln("- %s:", Clock.currTime.toISOExtString());
+            file.writefln("  totalTimeS:    %s", totalTimeS);
+            file.writefln("  docTimeS:      %s", docTimeS);
+            file.writefln("  archiveTimeS:  %s", cast(ulong)archiveTimeS);
+            file.writefln("  hardlinkTimeS: %s", hardlinkTimeS);
+            file.writefln("  hmodRAMMaxK:   %s", hmodRAMMaxK);
+        }
+    }
+
+    /// Diagnostics data to write to a file to compare between `ddocs.org` runs.
+    Diagnostics diagnostics;
 
     /// Commands executed so far through runCmd/runShell (each command includes all arguments).
     string[] commands;
@@ -463,6 +511,7 @@ public:
 int main(string[] args)
 {
     Context context;
+    auto totalTimer = Timer("Total run time", context);
     auto config = Config(args, context);
     if(config.doHelp)
     {
@@ -470,11 +519,12 @@ int main(string[] args)
         return 0;
     }
 
-    // At exit, dump the uber-verbose log to a file.
+    // At exit, dump diagnostics and the uber-verbose log.
     scope(exit)
     {
         import yaml;
-
+        context.diagnostics.totalTimeS = cast(ulong)totalTimer.ageSeconds;
+        context.diagnostics.finish(config);
         Dumper(config.logYAMLPath).dump(context.logYAML);
         writeln("Peak memory usage of ddocs.org itself (kiB): ", peakMemoryUsageK);
     }
@@ -525,6 +575,7 @@ int main(string[] args)
             generateDocs(name, statuses, config, context);
             archiveDocs(name, statuses, config, context);
         }
+        context.diagnostics.docTimeS = cast(ulong)timer.ageSeconds;
         return statuses;
     }
     if(auto e = collectException({ context.statuses = generateAllDocs(); }()))
@@ -566,11 +617,10 @@ void writeDocGenerationStatus(const ref Config config, ref Context context)
     //TODO byKeyValue.array in dmd 2.067
     auto sKeyVals = context.statuses.byKey.map!(k => tuple(k, cast(DocsStatus)context.statuses[k])).array;
 
+    auto byHmodRAM = sKeyVals.sort!((a, b) => a[1].hmodRAM > b[1].hmodRAM);
     line("32 worst `hmod` memory usages (kiB): \n%s",
-         sKeyVals.sort!((a, b) => a[1].hmodRAM > b[1].hmodRAM)
-                 .take(32)
-                 .map!(kv => "  %s: %s\n".format(kv[0], kv[1].hmodRAM))
-                 .joiner());
+         byHmodRAM.take(32).map!(kv => "  %s: %s\n".format(kv[0], kv[1].hmodRAM)).joiner());
+    context.diagnostics.hmodRAMMaxK = byHmodRAM.empty ? 0 : byHmodRAM.front[1].hmodRAM;
     line("\nUnknown errors: %s\n", svals.count!((ref s) => s.errors.canFind("Unknown error")));
     foreach(name, status; context.statuses) if(!status.errors.empty)
     {
@@ -603,7 +653,7 @@ void removeDubDir(const ref Config config, ref Context context)
  * Params:
  *
  * pkgName  = Name of the packages.
- * statuses = Package generation statuses. Guaranteed to have doc statuses for this 
+ * statuses = Package generation statuses. Guaranteed to have doc statuses for this
  *              package but may not have statuses for all packages.
  * config   = Config for output directory and various options.
  * context  = Context for package/version information.
@@ -617,6 +667,7 @@ void archiveDocs(string pkgName, DocsStatus[string] statuses,
     if(config.skipDocs || config.skipArchives) { return; }
     // context.writefln("Creating documentation archives for '%s'", packageName);
     auto timer = Timer("Creating documentation archives for '%s'".format(pkgName), context);
+    scope(exit) { context.diagnostics.archiveTimeS += timer.ageSeconds; }
     foreach(pkgVer; context.versions[pkgName])
     {
         // If we did not generate any docs this time, don't archive anything (unless forced).
@@ -690,6 +741,7 @@ void latestLinks(const ref Config config, ref Context context)
     if(config.skipDocs) { return; }
     context.writeHeading("Creating hardlinks");
     auto timer = Timer("Creating hardlinks", context);
+    scope(exit) { context.diagnostics.hardlinkTimeS = cast(ulong)timer.ageSeconds; }
     // Nothing to hardlink if we didn't generate docs.
     foreach(pkgName, pkgVersions; context.versions)
     {
@@ -1598,12 +1650,17 @@ public:
         startTime_ = Clock.currStdTime;
     }
 
+    /// Time since the Timer started in seconds.
+    double ageSeconds()
+    {
+        return (Clock.currStdTime - startTime_) / 10_000_000.0;
+    }
+
     /// Destroy the Timer and write the result message.
     ~this()
     {
         if(startTime_ == ulong.max) { return; }
-        context_.writefln("Timer: %s took %.2fs",
-                          name_, (Clock.currStdTime - startTime_) / 10_000_000.0);
+        context_.writefln("Timer: %s took %.2fs", name_, ageSeconds());
         startTime_ = ulong.max;
     }
 }
