@@ -14,19 +14,22 @@ import std.typecons;
 // 03.03.2015: 1803 MiB
 
 //TODO future ideas:
+// - Features:
 //     * Cross-project cross-referencing
 //       When done, we can also have stuff like call graphs or class hierarchy graphs
 //       referencing code from other projects.
 //     * Phobos/Druntime cross-referencing
 //     * JS search for packages using fuzzy matching (e.g. dml would match dyaml)
 //       the search interface would be similar to search in generated docs.
-//     * support tags in hmod.cfg dub.json so ddocs.org can add package search by tag (with JS)
+//     * support tags in hmod.cfg/dub.json so ddocs.org can add package search by tag (with JS)
+// - Maintenance:
 //     * ddocs.org and hmod-dub should be DUB packages.
+//     * replace the "package:version" indices used in pkgGenOutputs/statuses_ with
+//       a struct - package name and version pair. Joining strings is unsafe and ugly.
+// - Performance:
 //     * run hmod-dub through /usr/bin/time and collect maxresident memory usage stats.
 //       Log those in the detailed log and if greater than e.g. 256MiB, print a warning
 //       to stdout.
-//     * replace the "package:version" indices used in pkgGenOutputs/statuses_ with
-//       a struct - package name and version pair. Joining strings is unsafe and ugly.
 //     * Use a separate max-doc-age for obsolete versions. Make it e.g. 25 days (default
 //       max-doc-age is 5 days).
 //     * Compress cached DUB packages for obsolete versions.  This should save a lot of
