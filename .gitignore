@@ -1,0 +1,14 @@
+/dub.selections.json
+.dub
+docs.json
+__dummy.html
+public
+public-bkp*
+packages.yaml
+versions.yaml
+ddocs.org
+ddocs.org-log.yaml
+source/*.bkp*
+*.o
+*.bkp
+*.obj
