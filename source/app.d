@@ -1080,7 +1080,7 @@ void generateIndexPageRow(R)(ref R dst, string anchor, string pkgName,
             // Should never happen, but show an obvious error instead of assert(false) here.
             case UNINITIALIZED:      dst.put(`class="logic-error"`);     break;
         }
-        const path = ver.type == VersionType.Latest ? "latest" : ver.name;
+        const path = ver.type == VersionType.Latest ? "latest" : ver.name.tr("+", "_");
         if(archiveOnly)
         {
             dst.putAll(`>`, ver.name, `</span>`);
