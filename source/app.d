@@ -89,7 +89,7 @@ struct Config
     ulong maxDocAge = 3600 * 24 * 5;
     // By default, regenerate docs for branches every day.
     /// Maximum documentation age of branch package versions (e.g. `~master`), in seconds.
-    ulong maxDocAgeBranch = 3600 * 24;
+    ulong maxDocAgeBranch = 3600 * 36;
     /** Maximum number of subprocesses `hmod-dub` can use.
      *
      * Note that running many process in parallel can result in massive worst-case memory
@@ -247,7 +247,7 @@ Options:
                                     Default: 432000 (5 days)
     -b, --max-doc-age-branch SECS   Like --max-doc-age, but for branch versions
                                     of a package (e.g. ~master).
-                                    Default: 86400 (1 day)
+                                    Default: 129600 (1.5 days)
     -o, --output-directory   PATH   The directory to write generated
                                     documentation to.
                                     Default: ./public
