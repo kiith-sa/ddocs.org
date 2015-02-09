@@ -951,15 +951,15 @@ void generateBreadcrumbs(R)(ref R dst, void delegate() generateContent)
     dst.put(`<div class="ddocs-content">`);
 }
 
-/// Generate footer with copyright information.
+/// Generate the site footer.
 void generateDDocsFooter(R)(ref R dst)
 {
     dst.put(
 `</div>
 </div>
 <footer>
-&copy Copyright 2014-2015, <a href="http://defenestrate.eu">Ferdinand Majerech</a>.
-Generated with <a href="https://github.com/kiith-sa/ddocs.org">DDocs.org</a>
+Generated with <a href="https://github.com/kiith-sa/ddocs.org">DDocs.org</a> by
+<a href="http://defenestrate.eu">Ferdinand Majerech</a>.
 </footer>
 </body>
 </html>`);
