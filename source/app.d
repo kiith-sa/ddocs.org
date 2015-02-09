@@ -471,16 +471,21 @@ public:
     /** Run specified command in the shell and record its output.
      *
      * Params: shellCmd = Full command string, as it would be entered into the shell.
+     *         quiet    = If true, don't record the output. Useful for commands with
+     *                    huge amount of useless output like `7z`.
      *
      * Returns: Exit status and output of the command, as returned by `std.process.execute`.
      */
-    auto runShell(string shellCmd)
+    auto runShell(string shellCmd, Flag!"quiet" quiet = No.quiet)
     {
         import std.process;
         this.writefln("== Running `%s` ==", shellCmd);
         auto result = executeShell(shellCmd);
-        commands ~= shellCmd;
-        cmdOutputs ~= result.output;
+        if(!quiet)
+        {
+            commands ~= shellCmd;
+            cmdOutputs ~= result.output;
+        }
         return result;
     }
 
