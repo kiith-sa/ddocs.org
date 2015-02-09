@@ -690,7 +690,7 @@ void archiveDocs(string pkgName, DocsStatus[string] statuses,
         const _7zCmd = "7z a -mx%s '%s.7z' '%s'".format(config.compressionLevel, dir, dir);
         foreach(cmd; only(xzCmd, _7zCmd))
         {
-            const result = context.runShell(cmd);
+            const result = context.runShell(cmd, cmd is _7zCmd ? Yes.quiet : No.quiet);
             enforce(result.status == 0,
                     new Exception("%s failed with status %s: output:\n%s"
                                   .format(cmd, result.status, result.output)));
