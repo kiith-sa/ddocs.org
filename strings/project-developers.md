@@ -5,8 +5,7 @@ documentation. It parses D documentation comments as both
 [DDoc](http://dlang.org/ddoc.html) and [Markdown](http://en.wikipedia.org/wiki/Markdown)
 (except a few [Markdown
  features](https://github.com/kiith-sa/harbored-mod#differences-from-vanilla-markdown)
- incompatible with DDoc).  In future it will be possible to disable either format so that
-pure DDoc or Markdown may be used.
+ incompatible with DDoc).  It is also possible to use DDoc only, see below.
 
 
 To tweak the documentation generated for your project:
@@ -31,4 +30,6 @@ To tweak the documentation generated for your project:
   toc-additional=links.md # file with additional table of
                           # contents content (e.g. links)
   macros=macros.dd        # file with DDoc macros to use
+  no-markdown=true        # disable Markdown support
+                          # if you only want DDoc
   ```
