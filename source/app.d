@@ -15,10 +15,19 @@ import std.typecons;
 
 //TODO future ideas:
 // - Features:
-//     * Cross-project cross-referencing
-//       When done, we can also have stuff like call graphs or class hierarchy graphs
-//       referencing code from other projects.
+//     * Cross-project cross-referencing.
+//       Dependencies from dub.json will be considered for cross-referencing when
+//       generating docs for a package. The links between projects should be absolute,
+//       so e.g. after downloading docs for tharsis-core the links to tharsis-full still
+//       work, as they point to ddocs.org.
+//       When implemented, we can also have stuff like call graphs or class hierarchy
+//       graphs referencing code from other projects.
+//       Test cross-referencing on Tharsis projects.
 //     * Phobos/Druntime cross-referencing
+//       Will need special handling (Phobos is not a DUB project, needs a custom hmod.cfg
+//       to pass dlang.org macros, probably needs to link to dlang.org docs, etc.)
+//       Also, cross-referencing with Phobos/Druntime should be on by default, so docs for 
+//       any D projects can refer to them.
 //     * JS search for packages using fuzzy matching (e.g. dml would match dyaml)
 //       the search interface would be similar to search in generated docs.
 //     * support tags in hmod.cfg/dub.json so ddocs.org can add package search by tag (with JS)
