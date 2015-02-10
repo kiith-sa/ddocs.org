@@ -769,16 +769,21 @@ void latestLinks(const ref Config config, ref Context context)
                                       .format(result.status, result.output)));
             }
 
-            if(!config.forceHardlinks && !context.status(pkgName, latest).didGenerateDocs)
-            {
-                continue;
-            }
+            auto status = context.status(pkgName, latest);
+
             const to   = config.pkgPath(pkgName, "latest");
             const from = config.pkgPath(pkgName, latest.name);
-
-            hardlink(from, to);
-            hardlink(from ~ ".txz", to ~ ".txz");
-            hardlink(from ~ ".7z", to ~ ".7z");
+            // If there were errors, still need the hardlink - for the status page.
+            if(status.didGenerateDocs || !status.errors.empty || config.forceHardlinks) 
+            {
+                hardlink(from, to); 
+            }
+            // If there were errors, we have no arcchives.
+            if(status.didGenerateDocs || (status.errors.empty && config.forceHardlinks))
+            {
+                hardlink(from ~ ".txz", to ~ ".txz");
+                hardlink(from ~ ".7z", to ~ ".7z");
+            }
         }
     }
 }
