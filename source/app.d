@@ -1,3 +1,8 @@
+//          Copyright Ferdinand Majerech 2015.
+// Distributed under the Boost Software License, Version 1.0.
+//    (See accompanying file LICENSE_1_0.txt or copy at
+//          http://www.boost.org/LICENSE_1_0.txt)
+
 import std.algorithm;
 import std.array;
 import std.conv: to;
@@ -59,13 +64,6 @@ import std.typecons;
 version(Posix) {}
 // We use unix commands, etc.
 else static assert(false, "ddocs.org only supports Posix systems (e.g. Linux)");
-
-// Compression comparison:
-// 28MiB pyd.tar: (7z directly compresses untarred data so it's a bit slower)
-// tar.xz: xz -3kv pyd.tar:      0.35s|32MiB  RAM|263.8kiB|0.009 ratio
-// tar.gz: gzip -9kv pyd.tar:    0.29s|968kiB RAM|592.8kiB
-// 7z:     7z a -mx4 pyd.7z pyd: 0.57s|15MiB  RAM|284.3MiB
-// zip:    4.7MB archive... useless
 
 /** Configuration variables loaded from the command-line.
  */
