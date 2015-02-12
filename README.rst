@@ -10,7 +10,7 @@ This is the implementation of the `DDocs.org <http://ddocs.org>`_ documentation
 repository for D projects. In short, it fetches `dub <http://code.dlang.org>`_
 packages, generates documentation for them using `harbored-mod
 <https://github.com/kiith-sa/harbored-mod>`_ and `hmod-dub
-<https://github.com/kiith-sa/hmod-dub`_, and generates simple pages listing the
+<https://github.com/kiith-sa/hmod-dub>`_, and generates simple pages listing the
 packages and documentation archives.
 
 **Principles**:
