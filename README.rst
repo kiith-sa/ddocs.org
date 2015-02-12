@@ -27,7 +27,7 @@ packages and documentation archives.
 Requirements
 ------------
 
-To run,``ddocs.org`` needs ``hmod-dub``, ``hmod`` (`harbored-mod
+To run, ``ddocs.org`` needs ``hmod-dub``, ``hmod`` (`harbored-mod
 <https://github.com/kiith-sa/harbored-mod>`_) and ``dub`` to be installed
 (available in ``PATH``).
 
