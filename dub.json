@@ -1,8 +1,10 @@
 {
     "name": "ddocs.org",
-    "description": "A minimal D application.",
-    "copyright": "Copyright © 2015, kiith-sa",
-    "authors": ["kiith-sa"],
+    "description": "Implementation of the ddocs.org site",
+    "copyright": "Copyright © 2015, Ferdinand Majerech",
+    "authors": ["Ferdinand Majerech"],
+    "license": "Boost 1.0",
+    "homepage": "http://ddocs.org",
     "dependencies": {
         "dyaml": ">=0.5.0",
         "semver": ">=0.2.0",
