@@ -879,6 +879,8 @@ void writeHTML(ref const Config config, ref Context context)
 
     File(config.outputDirectory.buildPath("style-ddocs.org.css"), "w").write(ddocsOrgCSS);
 
+    File(config.outputDirectory.buildPath("favicon.png"), "w").write(faviconData);
+
     auto pages = paginate(config, context);
     // Generate index pages.
     foreach(IndexPage page; pages)
@@ -947,10 +949,11 @@ void generateDDocsHeader(R)(ref R dst, string title, size_t depth)
 <meta charset="utf-8"/>
 <link rel="stylesheet" type="text/css" href="%sstyle-hmod.css"/>
 <link rel="stylesheet" type="text/css" href="%sstyle-ddocs.org.css"/>
+<link rel="icon" type="image/png" href="%sfavicon.png" />
 <title>%s</title>
 </head>
 <body>
-<div class="main">`.format(relative, relative, title));
+<div class="main">`.format(relative, relative, relative, title));
 }
 
 /** Generate breadcrumbs at the top of a page.
@@ -1734,3 +1737,4 @@ double freeSpaceGiB()
 immutable string mainDescription   = import("main-description.md");
 immutable string projectDevelopers = import("project-developers.md");
 immutable string ddocsOrgCSS       = import("style-ddocs.org.css");
+immutable string faviconData       = import("favicon.png");
