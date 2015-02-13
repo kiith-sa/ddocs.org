@@ -396,15 +396,17 @@ private:
 
     /** Info (version/date/description) describing known packages, indexed by package name.
      *
-     * Set exactly once through the `packages` setter.
+     * Set exactly once through the `packageRows` setter.
      */
     PackageRow[string] packages_;
 
-    /** Arrays of package versions, indexed by package name.
+    /** Package data, indexed by package name.
      *
-     * Set exactly once through the `versions` setter.
+     * Set exactly once through the `packageData` setter.
      */
-    Version[][string] versions_;
+    Package[string] packageData_;
+
+
     /** Documentation generation statuses, indexed by "package:version" names.
      *
      * Set exactly once through the `statuses` setter.
@@ -413,17 +415,17 @@ private:
 
 public:
     /// Set package info once it is loaded. Must be called exactly once.
-    void packages(PackageRow[string] rhs) @safe pure nothrow @nogc
+    void packageRows(PackageRow[string] rhs) @safe pure nothrow @nogc
     {
-        assert(packages_ is null, "Context.packages can be set only once");
+        assert(packages_ is null, "Context.packageRows can be set only once");
         packages_ = rhs;
     }
 
-    /// Set version info once it is loaded. Must be called exactly once.
-    void versions(Version[][string] rhs) @safe pure nothrow @nogc
+    /// Set package data once it is loaded. Must be called exactly once.
+    void packageData(Package[string] rhs) @safe pure nothrow @nogc
     {
-        assert(versions_ is null, "Context.versions can be set only once");
-        versions_ = rhs;
+        assert(packageData_ is null, "Context.packageData can be set only once");
+        packageData_ = rhs;
     }
 
     /// Set documentation generation statuses once generated. Must be called exactly once.
@@ -434,10 +436,10 @@ public:
     }
 
     /// Info (version/date/description) describing known packages, indexed by package name.
-    const(PackageRow[string]) packages() @safe pure nothrow const @nogc { return packages_; }
+    const(PackageRow[string]) packageRows() @safe pure nothrow const @nogc { return packages_; }
 
-    /// Arrays of package versions, indexed by package name.
-    const(Version[][string]) versions() @safe pure nothrow const @nogc { return versions_; }
+    /// Package data, indexed by package name.
+    const(Package[string]) packageData() @safe pure nothrow const @nogc { return packageData_; }
 
     /// Documentation generation statuses, indexed by "package:version" names.
     const(DocsStatus[string]) statuses() @safe pure nothrow const @nogc { return statuses_; }
@@ -561,22 +563,23 @@ int main(string[] args)
     {
          return error("Failed to get %s: ".format(packagesHtmlPath), e);
     }
-    if(auto e = collectException({ context.packages = parsePackages(packagesHtml, context); }()))
+    if(auto e = collectException({ context.packageRows = parsePackageList(packagesHtml, context); }()))
     {
         return error("Failed to get package information from http://code.dlang.org. "
                      "Maybe the format has changed?: ", e);
     }
-    scope(success) { savePackages(config, context); }
-    if(auto e = collectException({ context.versions = getVersions(config, context); }()))
+    scope(success) { savePackageList(config, context, context.packageRows); }
+    if(auto e = collectException({ context.packageData = getPackageData(config, context); }()))
     {
-        return error("Failed to get package version info: ", e);
+        return error("Failed to get package data: ", e);
     }
-    scope(success) { saveVersions(config, context); }
+    scope(success) { savePackageData(config, context); }
 
     write("\n");
-    const totalPackageVersionCount = context.versions.byValue.map!(v => v.length).sum;
+    const totalPackageVersionCount = 
+        context.packageData.byValue.map!(v => v.versions.length).sum;
     context.writefln("Got info about %s packages, with %s versions total",
-                     context.packages.length, totalPackageVersionCount);
+                     context.packageData.length, totalPackageVersionCount);
 
     // Generate docs and create documentation archives for all packages.
     context.writeHeading("Generating documentation");
@@ -585,7 +588,7 @@ int main(string[] args)
         auto timer = Timer("Generating documentation", context);
         DocsStatus[string] statuses;
         // Work with one package at a time.
-        foreach(name; context.packages.byKey)
+        foreach(name; context.packageRows.byKey)
         {
             generateDocs(name, statuses, config, context);
             archiveDocs(name, statuses, config, context);
@@ -680,10 +683,9 @@ void archiveDocs(string pkgName, DocsStatus[string] statuses,
 {
     // If we didn't generate any docs we have nothing to archive either.
     if(config.skipDocs || config.skipArchives) { return; }
-    // context.writefln("Creating documentation archives for '%s'", packageName);
     auto timer = Timer("Creating documentation archives for '%s'".format(pkgName), context);
     scope(exit) { context.diagnostics.archiveTimeS += timer.ageSeconds; }
-    foreach(pkgVer; context.versions[pkgName])
+    foreach(pkgVer; context.packageData[pkgName].versions)
     {
         // If we did not generate any docs this time, don't archive anything (unless forced).
         if(!config.forceArchives &&
@@ -757,10 +759,11 @@ void latestLinks(const ref Config config, ref Context context)
     context.writeHeading("Creating hardlinks");
     auto timer = Timer("Creating hardlinks", context);
     scope(exit) { context.diagnostics.hardlinkTimeS = cast(ulong)timer.ageSeconds; }
+
     // Nothing to hardlink if we didn't generate docs.
-    foreach(pkgName, pkgVersions; context.versions)
+    foreach(pkgName, pkgData; context.packageData)
     {
-        auto latest = pkgVersions.latestVersion;
+        auto latest = pkgData.versions.latestVersion;
         if(!latest.isNull)
         {
             void hardlink(const string from, const string to)
@@ -836,7 +839,7 @@ struct IndexPage
  */
 IndexPage[] paginate(ref const Config config, ref Context context)
 {
-    auto pkgNames = context.packages.byKey.array.sort;
+    auto pkgNames = context.packageRows.byKey.array.sort;
     IndexPage[] result;
     auto startCharGroups = pkgNames.map!(k => cast(char)k.front).group.array;
 
@@ -891,7 +894,7 @@ void writeHTML(ref const Config config, ref Context context)
     }
 
     // Generate status (error) pages for package versions where we failed to generate docs.
-    foreach(pkgName, versionList; context.versions) foreach(ver; versionList)
+    foreach(pkgName, pkgData; context.packageData) foreach(ver; pkgData.versions)
     {
         const status = context.status(pkgName, ver);
         if(!status.errors.empty)
@@ -1008,7 +1011,7 @@ void generateIndexPage(R)(ref R dst,
     import dmarkdown;
     scope(exit) { dst.generateDDocsFooter(); }
 
-    auto pkgNames = context.packages.byKey.array.sort;
+    auto pkgNames = context.packageRows.byKey.array.sort;
     auto startChars = pkgNames.map!(k => cast(char)k.front).uniq;
     // Breadcrumbs contain the alphabetic shortcut links.
     dst.generateBreadcrumbs({
@@ -1076,7 +1079,7 @@ void generateIndexPageRow(R)(ref R dst, string anchor, string pkgName,
     // Package name and dub link.
     dst.putAll(`<td>`, anchor, `<span>`, pkgName, `</span><a href="`,
             pkgBase, pkgName, `">dub</a></td>`);
-    auto pkgVersions = context.versions[pkgName];
+    auto pkgVersions = context.packageData[pkgName].versions;
 
     void addVersion(const Version ver)
     {
@@ -1130,7 +1133,7 @@ void generateIndexPageRow(R)(ref R dst, string anchor, string pkgName,
     dst.put(`</tr>`);
 
     // Description row
-    dst.putAll(`<tr><td colspan="2">`, context.packages[pkgName].description, "</td></tr>\n");
+    dst.putAll(`<tr><td colspan="2">`, context.packageRows[pkgName].description, "</td></tr>\n");
 }
 
 
@@ -1155,7 +1158,8 @@ bool generateDocs(string pkgName, ref DocsStatus[string] statuses,
 {
     assert(config.dubDirectory !is null, "Uninitialized config.dubDirectory");
     enum statusFileName = "hmod-dub-package-status.yaml";
-    auto versions = context.versions[pkgName];
+
+    auto versions = context.packageData[pkgName].versions;
     auto fullVersionNames = versions.map!(v => "%s:%s".format(pkgName, v.name));
 
     // Create empty doc statuses if we're skipping doc generation.
@@ -1241,59 +1245,57 @@ bool generateDocs(string pkgName, ref DocsStatus[string] statuses,
  *
  * Throws:  Exception on failure.
  */
-Version[][string] getVersions(ref const Config config, ref Context context)
+Package[string] getPackageData(ref const Config config, ref Context context)
 {
-    auto timer = Timer("Getting package version info", context);
-    PackageRow[string] packagesPrevious;
-    Version[][string] versionsPrevious;
     if(!config.forceInfoRefresh)
     {
-        packagesPrevious = loadPackages(config, context);
-        versionsPrevious = loadVersions(config, context);
+        packageListPrevious = loadPackageList(config, context);
+        packageDataPrevious = loadPackageData(config, context);
     }
 
-    context.writeln("Getting version info list");
-    string versionsHtmlPath;
-    Version[][string] versions;
-    try foreach(name, row; context.packages)
+    context.writeln("Updating package data");
+    string packageDataHtmlPath;
+    Package[string] packageData;
+    try foreach(name, row; context.packageRows)
     {
         string note = "reloaded";
         // Once we load versions for the package, either from cache or web, determine
         // version types and print the versions.
         scope(success)
         {
-            versions[name].initVersionTypes();
+            packageData[name].row = row;
+            packageData[name].versions.initVersionTypes();
             context.writefln("%s: %s (%s)", name,
-                             versions[name].map!(v => v.name).joiner(", "), note);
+                             packageData[name].versions.map!(v => v.name).joiner(", "), note);
         }
 
         stdout.flush();
-        if(name in packagesPrevious && row == packagesPrevious[name])
+        if(name in packageListPrevious && row == packageListPrevious[name])
         {
-            versions[name] = versionsPrevious[name];
+            packageData[name] = packageDataPrevious[name];
             note = "cached";
             continue;
         }
 
-        versionsHtmlPath = "http://code.dlang.org/packages/" ~ name;
-        string versionsHtml;
+        packageDataHtmlPath = "http://code.dlang.org/packages/" ~ name;
+        string packageHtml;
         import std.net.curl;
-        try { versionsHtml = cast(string)get(versionsHtmlPath); }
+        try { packageHtml = cast(string)get(packageDataHtmlPath); }
         catch(CurlException e)
         {
-            context.writefln("WARNING: Failed to get %s: %s; Ignoring", versionsHtmlPath, e.msg);
+            context.writefln("WARNING: Failed to get %s: %s; Ignoring", packageDataHtmlPath, e.msg);
             continue;
         }
 
-        versions[name] = parseVersions(versionsHtml, name);
+        packageData[name] = parsePackageData(packageHtml, name);
     }
     catch(Exception e)
     {
-        context.writeln("ERROR: Failed to get version information from %s. "
-                        "Maybe the format has changed?: %s ", versionsHtmlPath, e.msg);
+        context.writeln("ERROR: Failed to get package information from %s. "
+                        "Maybe the format has changed?: %s ", packageDataHtmlPath, e.msg);
         throw e;
     }
-    return versions;
+    return packageData;
 }
 
 /// Package info from the front page of `code.dlang.org`.
@@ -1305,6 +1307,16 @@ struct PackageRow
     string date;
     /// Description text of the package.
     string description;
+}
+
+/// All data known about a package.
+struct Package 
+{
+    /// See_Also: PackageRow.
+    PackageRow row;
+    alias row this;
+    /// All versions of the package.
+    Version[] versions;
 }
 
 /// Documentation generation status (for one version of one package).
@@ -1438,7 +1450,7 @@ void initVersionTypes(Version[] versions)
  *
  * Returns: Parsed package info.
  */
-PackageRow[string] parsePackages(string htmlSource, ref Context context)
+PackageRow[string] parsePackageList(string htmlSource, ref Context context)
 {
     auto timer = Timer("Getting package info", context);
     import std.regex;
@@ -1500,7 +1512,7 @@ PackageRow[string] parsePackages(string htmlSource, ref Context context)
  * Returns: Parsed version info, with version names but not types. `initVersionTypes()`
  *          must be called to fully initialize the version info.
  */
-Version[] parseVersions(string htmlSource, string packageName)
+Package parsePackageData(string htmlSource, string packageName)
 {
     import std.regex;
     htmlSource = htmlSource.splitLines.join;
@@ -1528,23 +1540,27 @@ Version[] parseVersions(string htmlSource, string packageName)
 
     auto current = currentVerMatch.front["current"];
 
-    return Version(current) ~ olderVerMatch.map!(m => Version(m["version2"])).array;
+    Package result;
+    result.versions = Version(current) ~ olderVerMatch.map!(m => Version(m["version2"])).array;
+    return result;
 }
 
-/** Save package information so we can compare what has changed next time `ddocs.org` runs.
+/** Save package list so we can compare what has changed next time `ddocs.org` runs.
  *
  * Params:
  *
- * config  = Config to get packages file path.
- * context = Context with package information.
+ * config      = Config to get package list file path.
+ * context     = Context for output.
+ * packageRows = Package list to save.
  */
-void savePackages(ref const Config config, ref Context context)
+void savePackageList(ref const Config config, ref Context context, 
+                     const PackageRow[string] packageRows)
 {
     context.writeln("Saving package information");
 
     import yaml;
     Node[string] pkgNodes;
-    foreach(name, row; context.packages)
+    foreach(name, row; packageRows)
     {
         pkgNodes[name] = Node(["latestVersion": row.latestVersion,
                                "date": row.date,
@@ -1566,23 +1582,23 @@ void savePackages(ref const Config config, ref Context context)
  *
  * Returns: Package rows with cached package information, indexed by package name.
  */
-PackageRow[string] loadPackages(ref const Config config, ref Context context)
+PackageRow[string] loadPackageList(ref const Config config, ref Context context)
 {
-    context.writeln("Loading package information");
-    PackageRow[string] packages;
+    context.writeln("Loading cached package list");
+    PackageRow[string] packageRows;
     import yaml;
     try foreach(string name, ref Node pkg; Loader(config.packagesListPath).load())
     {
-        packages[name] = PackageRow(pkg["latestVersion"].as!string,
-                                    pkg["date"].as!string,
-                                    pkg["description"].as!string);
+        packageRows[name] = PackageRow(pkg["latestVersion"].as!string,
+                                       pkg["date"].as!string,
+                                       pkg["description"].as!string);
     }
     catch(YAMLException e)
     {
         context.writefln("WARNING: failed to load (cached) package list: %s. Ignoring.", e.msg);
         return null;
     }
-    return packages;
+    return packageRows;
 }
 
 /** Save version information so we don't need to crawl `code.dlang.org` every time for it.
@@ -1592,20 +1608,21 @@ PackageRow[string] loadPackages(ref const Config config, ref Context context)
  * config  = Config to get versions file path.
  * context = Context with version information.
  */
-void saveVersions(ref const Config config, ref Context context)
+void savePackageData(ref const Config config, ref Context context)
 {
     import yaml;
     context.writeln("Saving package version information");
     try
     {
-        Dumper(config.versionsListPath)
-            .dump(Node(context.versions.keys,
-                       context.versions.byValue
-                                       .map!(vs => vs.map!(v => v.name).array).array));
+        Dumper(config.versionsListPath).dump(
+            Node(context.packageData.keys,
+                 context.packageData
+                        .byValue
+                        .map!(p => Node(p.versions.map!(v => v.name).array)).array));
     }
     catch(YAMLException e)
     {
-        context.writefln("WARNING: failed to save (cache) package version list: %s. Ignoring.", e.msg);
+        context.writefln("WARNING: failed to save (cache) detailed package data: %s. Ignoring.", e.msg);
     }
 }
 
@@ -1619,21 +1636,23 @@ void saveVersions(ref const Config config, ref Context context)
  * Returns: Loaded versions. Only version names are initialized, `initVersionTypes()`
  *          must be called to set version types.
  */
-Version[][string] loadVersions(ref const Config config, ref Context context)
+Package[string] loadPackageData(ref const Config config, ref Context context)
 {
-    context.writeln("Loading package version information");
-    Version[][string] versions;
+    context.writeln("Loading cached detailed package information");
+    Package[string] packages;
     import yaml;
-    try foreach(string name, ref Node ver; Loader(config.versionsListPath).load())
+    try foreach(string name, ref Node pkgNode; Loader(config.versionsListPath).load())
     {
-        versions[name] = ver.as!(Node[]).map!((ref n) => Version(n.as!string)).array;
+        Package pkg;
+        pkg.versions = pkgNode.as!(Node[]).map!((ref n) => Version(n.as!string)).array;
+        packages[name] = pkg;
     }
     catch(YAMLException e)
     {
-        context.writefln("WARNING: failed to load (cached) package version list: %s. Ignoring.", e.msg);
+        context.writefln("WARNING: failed to load (cached) detailed package data: %s. Ignoring.", e.msg);
         return null;
     }
-    return versions;
+    return packages;
 }
 
 
