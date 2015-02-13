@@ -394,12 +394,6 @@ private:
     /// Output of ddocs.org itself (same as stdout).
     string directOutput;
 
-    /** Info (version/date/description) describing known packages, indexed by package name.
-     *
-     * Set exactly once through the `packageRows` setter.
-     */
-    PackageRow[string] packages_;
-
     /** Package data, indexed by package name.
      *
      * Set exactly once through the `packageData` setter.
@@ -414,13 +408,6 @@ private:
     DocsStatus[string] statuses_;
 
 public:
-    /// Set package info once it is loaded. Must be called exactly once.
-    void packageRows(PackageRow[string] rhs) @safe pure nothrow @nogc
-    {
-        assert(packages_ is null, "Context.packageRows can be set only once");
-        packages_ = rhs;
-    }
-
     /// Set package data once it is loaded. Must be called exactly once.
     void packageData(Package[string] rhs) @safe pure nothrow @nogc
     {
@@ -434,9 +421,6 @@ public:
         assert(statuses_ is null, "Context.statuses can be set only once");
         statuses_ = rhs;
     }
-
-    /// Info (version/date/description) describing known packages, indexed by package name.
-    const(PackageRow[string]) packageRows() @safe pure nothrow const @nogc { return packages_; }
 
     /// Package data, indexed by package name.
     const(Package[string]) packageData() @safe pure nothrow const @nogc { return packageData_; }
@@ -554,21 +538,6 @@ int main(string[] args)
         return error("Failed to remove the dub directory (needed to force refetch)", e);
     }
 
-    // Get package/version info and cache it if `ddocs.org` finishes without error.
-    import std.net.curl;
-    context.writeHeading("Getting package list");
-    const packagesHtmlPath = "http://code.dlang.org";
-    string packagesHtml;
-    if(auto e = collectException({ packagesHtml = cast(string)get(packagesHtmlPath); }()))
-    {
-         return error("Failed to get %s: ".format(packagesHtmlPath), e);
-    }
-    if(auto e = collectException({ context.packageRows = parsePackageList(packagesHtml, context); }()))
-    {
-        return error("Failed to get package information from http://code.dlang.org. "
-                     "Maybe the format has changed?: ", e);
-    }
-    scope(success) { savePackageList(config, context, context.packageRows); }
     if(auto e = collectException({ context.packageData = getPackageData(config, context); }()))
     {
         return error("Failed to get package data: ", e);
@@ -1247,7 +1216,25 @@ bool generateDocs(string pkgName, ref DocsStatus[string] statuses,
  */
 Package[string] getPackageData(ref const Config config, ref Context context)
 {
-    auto timer = Timer("Getting detailed package info", context);
+    auto timer = Timer("Getting package data", context);
+
+    // Get package/version info and cache it on success.
+    import std.net.curl;
+    context.writeHeading("Getting package list");
+    const packagesHtmlPath = "http://code.dlang.org";
+    PackageRow[string] packageRows;
+    try
+    {
+        packageRows = parsePackageList(cast(string)get(packagesHtmlPath), context);
+    }
+    catch(Exception e)
+    {
+        context.writeln("ERROR: Failed to get package list from %s. "
+                        "Maybe the format has changed?: %s ", packagesHtmlPath, e.msg);
+        throw e;
+    }
+    scope(success) { savePackageList(config, context, packageRows); }
+
     PackageRow[string] packageListPrevious;
     Package[string] packageDataPrevious;
     if(!config.forceInfoRefresh)
@@ -1259,7 +1246,6 @@ Package[string] getPackageData(ref const Config config, ref Context context)
     context.writeln("Updating package data");
     string packageDataHtmlPath;
     Package[string] packageData;
-    auto packageRows = context.packageRows;
     try foreach(name, row; packageRows)
     {
         string note = "reloaded";
