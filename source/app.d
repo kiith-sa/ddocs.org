@@ -588,7 +588,7 @@ int main(string[] args)
         auto timer = Timer("Generating documentation", context);
         DocsStatus[string] statuses;
         // Work with one package at a time.
-        foreach(name; context.packageRows.byKey)
+        foreach(name; context.packageData.byKey)
         {
             generateDocs(name, statuses, config, context);
             archiveDocs(name, statuses, config, context);
@@ -839,7 +839,7 @@ struct IndexPage
  */
 IndexPage[] paginate(ref const Config config, ref Context context)
 {
-    auto pkgNames = context.packageRows.byKey.array.sort;
+    auto pkgNames = context.packageData.byKey.array.sort;
     IndexPage[] result;
     auto startCharGroups = pkgNames.map!(k => cast(char)k.front).group.array;
 
@@ -1011,7 +1011,7 @@ void generateIndexPage(R)(ref R dst,
     import dmarkdown;
     scope(exit) { dst.generateDDocsFooter(); }
 
-    auto pkgNames = context.packageRows.byKey.array.sort;
+    auto pkgNames = context.packageData.byKey.array.sort;
     auto startChars = pkgNames.map!(k => cast(char)k.front).uniq;
     // Breadcrumbs contain the alphabetic shortcut links.
     dst.generateBreadcrumbs({
@@ -1133,7 +1133,7 @@ void generateIndexPageRow(R)(ref R dst, string anchor, string pkgName,
     dst.put(`</tr>`);
 
     // Description row
-    dst.putAll(`<tr><td colspan="2">`, context.packageRows[pkgName].description, "</td></tr>\n");
+    dst.putAll(`<tr><td colspan="2">`, context.packageData[pkgName].description, "</td></tr>\n");
 }
 
 
@@ -1247,6 +1247,9 @@ bool generateDocs(string pkgName, ref DocsStatus[string] statuses,
  */
 Package[string] getPackageData(ref const Config config, ref Context context)
 {
+    auto timer = Timer("Getting detailed package info", context);
+    PackageRow[string] packageListPrevious;
+    Package[string] packageDataPrevious;
     if(!config.forceInfoRefresh)
     {
         packageListPrevious = loadPackageList(config, context);
@@ -1256,7 +1259,8 @@ Package[string] getPackageData(ref const Config config, ref Context context)
     context.writeln("Updating package data");
     string packageDataHtmlPath;
     Package[string] packageData;
-    try foreach(name, row; context.packageRows)
+    auto packageRows = context.packageRows;
+    try foreach(name, row; packageRows)
     {
         string note = "reloaded";
         // Once we load versions for the package, either from cache or web, determine
