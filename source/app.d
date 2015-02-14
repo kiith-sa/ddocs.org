@@ -1128,6 +1128,7 @@ bool generateDocs(string pkgName, ref DocsStatus[string] statuses,
     enum statusFileName = "hmod-dub-package-status.yaml";
 
     auto versions = context.packageData[pkgName].versions;
+    auto repository = context.packageData[pkgName].repository;
     auto fullVersionNames = versions.map!(v => "%s:%s".format(pkgName, v.name));
 
     // Create empty doc statuses if we're skipping doc generation.
@@ -1146,6 +1147,9 @@ bool generateDocs(string pkgName, ref DocsStatus[string] statuses,
                             .format(config.diskReserveGiB, freeGiB));
     }
 
+    string[] additionalLinks;
+    if(repository) { additionalLinks ~= ["--additional-toc-link", "Source:" ~ repository]; }
+    additionalLinks ~= ["--additional-toc-link", "DDocs.org:index.html"];
     auto args = ["hmod-dub",
                  "--output-directory",    config.outputDirectory,
                  "--process-count",       config.maxProcesses.to!string,
@@ -1154,8 +1158,8 @@ bool generateDocs(string pkgName, ref DocsStatus[string] statuses,
                  "--max-doc-age",         config.maxDocAge.to!string,
                  "--max-doc-age-branch",  config.maxDocAgeBranch.to!string,
                  "--status-output-path",  statusFileName,
-                 "--max-file-size",       config.maxFileSizeK.to!string,
-                 "--additional-toc-link", "DDocs.org:index.html"] ~
+                 "--max-file-size",       config.maxFileSizeK.to!string] ~
+                 additionalLinks ~
                  fullVersionNames.array;
     // Run `hmod-dub`.
     const result = context.runCmd(args);
