@@ -1279,8 +1279,8 @@ Package[string] getPackageData(ref const Config config, ref Context context)
     }
     catch(Exception e)
     {
-        context.writeln("ERROR: Failed to get package information from %s. "
-                        "Maybe the format has changed?: %s ", packageDataHtmlPath, e.msg);
+        context.writefln("ERROR: Failed to get package information from %s. "
+                         "Maybe the format has changed?: %s ", packageDataHtmlPath, e.msg);
         throw e;
     }
     return packageData;
