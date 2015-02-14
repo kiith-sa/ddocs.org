@@ -1241,7 +1241,9 @@ Package[string] getPackageData(ref const Config config, ref Context context)
     Package[string] packageDataPrevious;
     if(!config.forceInfoRefresh)
     {
+        // May be null; in that case nothing is cached.
         packageListPrevious = loadPackageList(config, context);
+        // May be null; in that case we'll just end up reloading all package data.
         packageDataPrevious = loadPackageData(config, context);
     }
 
@@ -1262,7 +1264,8 @@ Package[string] getPackageData(ref const Config config, ref Context context)
         }
 
         stdout.flush();
-        if(name in packageListPrevious && row == packageListPrevious[name])
+        if(name in packageListPrevious && row == packageListPrevious[name] &&
+           packageDataPrevious !is null)
         {
             packageData[name] = packageDataPrevious[name];
             note = "cached";
