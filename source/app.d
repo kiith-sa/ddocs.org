@@ -76,13 +76,13 @@ struct Config
      *
      * Compared to current code.dlang.org content to identity updated packages.
      */
-    string packagesListPath = "./packages.yaml";
-    /** Path to the YAML file we store known versions of packages in.
+    string packagesListPath = "./packagelist.yaml";
+    /** Path to the YAML file we store detailed data about known packages.
      *
-     * Used to avoid always redownloading version info from code.dlang.org pages;
+     * Used to avoid always redownloading package data from code.dlang.org pages;
      * we only redownload if the package was updated.
      */
-    string versionsListPath = "./versions.yaml";
+    string packageDataPath = "./packagedata.yaml";
     /// Directory to write the generated site/documentation into.
     string outputDirectory = "./public";
     /// Directory where DUB stores packages. Initialized by this().
@@ -176,8 +176,8 @@ struct Config
                "a|max-doc-age",        &maxDocAge,
                "b|max-doc-age-branch", &maxDocAgeBranch,
                "o|output-directory",   &outputDirectory,
-               "P|packages-list-path", &packagesListPath,
-               "v|versions-list-path", &versionsListPath,
+               "P|package-list-path",  &packagesListPath,
+               "A|package-data-path",  &packageDataPath,
                "c|compression-level",  &compressionLevel,
                "H|force-hardlinks",    &forceHardlinks,
                "A|force-archives",     &forceArchives,
@@ -258,18 +258,17 @@ Options:
     -o, --output-directory   PATH   The directory to write generated
                                     documentation to.
                                     Default: ./public
-    -P, --packages-list-path PATH   Path to a YAML file where information
-                                    about known packages is stored. Will be
-                                    updated with any new package information.
+    -P, --package-list-path  PATH   Path to a YAML file where a list of known 
+                                    packages is stored. Will be updated with any 
+                                    new packages.
                                     Will be created if it doesn't exist.
-                                    Default: ./packages.yaml
-    -v, --versions-list-path PATH   Path to a YAML file where information
-                                    about known package versions is stored.
+                                    Default: ./packagelist.yaml
+    -A, --package-data-path  PATH   Path to a YAML file where detailed package 
+                                    data (including versions) is stored.
                                     Helps minimize dub registry page downloads.
-                                    Will be updated with any new version
-                                    information. Will be created if it doesn't
-                                    exist.
-                                    Default: ./versions.yaml
+                                    Will be updated with any changes detected.
+                                    Will be created if it doesn't exist.
+                                    Default: ./packagedata.yaml
     -c, --compression-level  LEVEL  Compression level to use (with xz, 7z) when
                                     generating compressed documentation
                                     archives. Must be at least 0 and at most 9.
@@ -1199,18 +1198,17 @@ bool generateDocs(string pkgName, ref DocsStatus[string] statuses,
     return true;
 }
 
-
-/** Get version lists for all packages.
+/** Get package data for all packages.
  *
- * Versions of a package are loaded from cache (`versions.yaml` by default) if the package
- * has not changed, or otherwise loaded from the package page at `code.dlang.org`.
+ * Package data is loaded from cache (`packagedata.yaml` by default) if the package has
+ * not changed, or otherwise loaded from the package page at `code.dlang.org`.
  *
  * Params:
  *
  * config  = Config to get cached versions path from.
  * context = Context for output.
  *
- * Returns: Arrays of package versions indexed by package name.
+ * Returns: Package data indexed by package name.
  *
  * Throws:  Exception on failure.
  */
@@ -1243,7 +1241,7 @@ Package[string] getPackageData(ref const Config config, ref Context context)
         packageDataPrevious = loadPackageData(config, context);
     }
 
-    context.writeln("Updating package data");
+    context.writeHeading("Updating package data");
     string packageDataHtmlPath;
     Package[string] packageData;
     try foreach(name, row; packageRows)
@@ -1490,7 +1488,7 @@ PackageRow[string] parsePackageList(string htmlSource, ref Context context)
 }
 
 
-/** Parse version info in a package HTML page from `code.dlang.org`.
+/** Parse data from a package HTML page from `code.dlang.org`.
  *
  * Params:
  *
@@ -1499,8 +1497,9 @@ PackageRow[string] parsePackageList(string htmlSource, ref Context context)
  *
  * Note: must be kept in sync with `code.dlang.org` package page or API.
  *
- * Returns: Parsed version info, with version names but not types. `initVersionTypes()`
- *          must be called to fully initialize the version info.
+ * Returns: Package data in a Package struct, which **needs further initialization**.
+ *          The `row` member must be set, and `initVersionTypes()` must be called on the
+ *          `versions` member to fully initialize version info.
  */
 Package parsePackageData(string htmlSource, string packageName)
 {
@@ -1563,11 +1562,11 @@ void savePackageList(ref const Config config, ref Context context,
     }
 }
 
-/** Load cached package information (from `packages.yaml` by default).
+/** Load cached package list (from `packagelist.yaml` by default).
  *
  * Params:
  *
- * config  = Config to get packages file path.
+ * config  = Config to get package list file path.
  * context = Context for output/logging.
  *
  * Returns: Package rows with cached package information, indexed by package name.
@@ -1591,7 +1590,7 @@ PackageRow[string] loadPackageList(ref const Config config, ref Context context)
     return packageRows;
 }
 
-/** Save version information so we don't need to crawl `code.dlang.org` every time for it.
+/** Save detailed package data so we don't need to crawl `code.dlang.org` every time for it.
  *
  * Params:
  *
@@ -1604,11 +1603,12 @@ void savePackageData(ref const Config config, ref Context context)
     context.writeln("Saving package version information");
     try
     {
-        Dumper(config.versionsListPath).dump(
+        Dumper(config.packageDataPath).dump(
             Node(context.packageData.keys,
                  context.packageData
                         .byValue
-                        .map!(p => Node(p.versions.map!(v => v.name).array)).array));
+                        .map!(p => Node(["versions" : p.versions.map!(v => v.name).array]))
+                        .array));
     }
     catch(YAMLException e)
     {
@@ -1616,25 +1616,26 @@ void savePackageData(ref const Config config, ref Context context)
     }
 }
 
-/** Load cached version information (from `versions.yaml` by default).
+/** Load cached detailed package data (from `packagedata.yaml` by default).
  *
  * Params:
  *
- * config  = Config to get versions file path.
+ * config  = Config to get the path to read from.
  * context = Context for output/logging.
  *
- * Returns: Loaded versions. Only version names are initialized, `initVersionTypes()`
- *          must be called to set version types.
+ * Returns: Loaded package data. Only partially initialized; the `row` members must be set
+ *          and `initVersionTypes()` must be called on the `version` members to set 
+ *          version types.
  */
 Package[string] loadPackageData(ref const Config config, ref Context context)
 {
     context.writeln("Loading cached detailed package information");
     Package[string] packages;
     import yaml;
-    try foreach(string name, ref Node pkgNode; Loader(config.versionsListPath).load())
+    try foreach(string name, ref Node node; Loader(config.packageDataPath).load())
     {
         Package pkg;
-        pkg.versions = pkgNode.as!(Node[]).map!((ref n) => Version(n.as!string)).array;
+        pkg.versions = node["versions"].as!(Node[]).map!((ref n) => Version(n.as!string)).array;
         packages[name] = pkg;
     }
     catch(YAMLException e)
