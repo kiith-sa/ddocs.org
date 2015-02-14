@@ -1305,6 +1305,8 @@ struct Package
     alias row this;
     /// All versions of the package.
     Version[] versions;
+    /// Link to the source repository of the package. May be null.
+    string repository;
 }
 
 /// Documentation generation status (for one version of one package).
@@ -1531,6 +1533,12 @@ Package parsePackageData(string htmlSource, string packageName)
 
     Package result;
     result.versions = Version(current) ~ olderVerMatch.map!(m => Version(m["version2"])).array;
+
+    enum repoStr = `<td>Repository</td>\s*?<td>\s*<a href="(?P<link>.*?)">.*?</a>\s*?</td>`;
+    auto repoMatch = htmlSource.matchAll(repoStr);
+    enforceE(repoMatch.walkLength == 1, "Not exactly 1 'repo' match");
+
+    result.repository = repoMatch.front["link"];
     return result;
 }
 
