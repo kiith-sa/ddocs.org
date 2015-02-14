@@ -1615,7 +1615,8 @@ void savePackageData(ref const Config config, ref Context context)
             Node(context.packageData.keys,
                  context.packageData
                         .byValue
-                        .map!(p => Node(["versions" : p.versions.map!(v => v.name).array]))
+                        .map!(p => Node(["versions"   : Node(p.versions.map!(v => v.name).array),
+                                         "repository" : Node(p.repository)]))
                         .array));
     }
     catch(YAMLException e)
@@ -1643,7 +1644,8 @@ Package[string] loadPackageData(ref const Config config, ref Context context)
     try foreach(string name, ref Node node; Loader(config.packageDataPath).load())
     {
         Package pkg;
-        pkg.versions = node["versions"].as!(Node[]).map!((ref n) => Version(n.as!string)).array;
+        pkg.versions   = node["versions"].as!(Node[]).map!((ref n) => Version(n.as!string)).array;
+        pkg.repository = node["repository"].as!string;
         packages[name] = pkg;
     }
     catch(YAMLException e)
