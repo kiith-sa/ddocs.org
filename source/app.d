@@ -31,7 +31,7 @@ import std.typecons;
 //     * Phobos/Druntime cross-referencing
 //       Will need special handling (Phobos is not a DUB project, needs a custom hmod.cfg
 //       to pass dlang.org macros, probably needs to link to dlang.org docs, etc.)
-//       Also, cross-referencing with Phobos/Druntime should be on by default, so docs for 
+//       Also, cross-referencing with Phobos/Druntime should be on by default, so docs for
 //       any D projects can refer to them.
 //     * JS search for packages using fuzzy matching (e.g. dml would match dyaml)
 //       the search interface would be similar to search in generated docs.
@@ -258,12 +258,12 @@ Options:
     -o, --output-directory   PATH   The directory to write generated
                                     documentation to.
                                     Default: ./public
-    -P, --package-list-path  PATH   Path to a YAML file where a list of known 
-                                    packages is stored. Will be updated with any 
+    -P, --package-list-path  PATH   Path to a YAML file where a list of known
+                                    packages is stored. Will be updated with any
                                     new packages.
                                     Will be created if it doesn't exist.
                                     Default: ./packagelist.yaml
-    -A, --package-data-path  PATH   Path to a YAML file where detailed package 
+    -A, --package-data-path  PATH   Path to a YAML file where detailed package
                                     data (including versions) is stored.
                                     Helps minimize dub registry page downloads.
                                     Will be updated with any changes detected.
@@ -544,7 +544,7 @@ int main(string[] args)
     scope(success) { savePackageData(config, context); }
 
     write("\n");
-    const totalPackageVersionCount = 
+    const totalPackageVersionCount =
         context.packageData.byValue.map!(v => v.versions.length).sum;
     context.writefln("Got info about %s packages, with %s versions total",
                      context.packageData.length, totalPackageVersionCount);
@@ -752,9 +752,9 @@ void latestLinks(const ref Config config, ref Context context)
             const to   = config.pkgPath(pkgName, "latest");
             const from = config.pkgPath(pkgName, latest.name);
             // If there were errors, still need the hardlink - for the status page.
-            if(status.didGenerateDocs || !status.errors.empty || config.forceHardlinks) 
+            if(status.didGenerateDocs || !status.errors.empty || config.forceHardlinks)
             {
-                hardlink(from, to); 
+                hardlink(from, to);
             }
             // If there were errors, we have no arcchives.
             if(status.didGenerateDocs || (status.errors.empty && config.forceHardlinks))
@@ -1298,7 +1298,7 @@ struct PackageRow
 }
 
 /// All data known about a package.
-struct Package 
+struct Package
 {
     /// See_Also: PackageRow.
     PackageRow row;
@@ -1542,7 +1542,7 @@ Package parsePackageData(string htmlSource, string packageName)
  * context     = Context for output.
  * packageRows = Package list to save.
  */
-void savePackageList(ref const Config config, ref Context context, 
+void savePackageList(ref const Config config, ref Context context,
                      const PackageRow[string] packageRows)
 {
     context.writeln("Saving package information");
@@ -1624,7 +1624,7 @@ void savePackageData(ref const Config config, ref Context context)
  * context = Context for output/logging.
  *
  * Returns: Loaded package data. Only partially initialized; the `row` members must be set
- *          and `initVersionTypes()` must be called on the `version` members to set 
+ *          and `initVersionTypes()` must be called on the `version` members to set
  *          version types.
  */
 Package[string] loadPackageData(ref const Config config, ref Context context)
