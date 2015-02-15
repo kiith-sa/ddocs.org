@@ -399,13 +399,6 @@ private:
      */
     Package[string] packageData_;
 
-
-    /** Documentation generation statuses, indexed by "package:version" names.
-     *
-     * Set exactly once through the `statuses` setter.
-     */
-    DocsStatus[string] statuses_;
-
 public:
     /// Set package data once it is loaded. Must be called exactly once.
     void packageData(Package[string] rhs) @safe pure nothrow @nogc
@@ -414,25 +407,11 @@ public:
         packageData_ = rhs;
     }
 
-    /// Set documentation generation statuses once generated. Must be called exactly once.
-    void statuses(DocsStatus[string] rhs) @safe pure nothrow @nogc
-    {
-        assert(statuses_ is null, "Context.statuses can be set only once");
-        statuses_ = rhs;
-    }
-
     /// Package data, indexed by package name.
     const(Package[string]) packageData() @safe pure nothrow const @nogc { return packageData_; }
 
-    /// Documentation generation statuses, indexed by "package:version" names.
-    const(DocsStatus[string]) statuses() @safe pure nothrow const @nogc { return statuses_; }
-
-    /// Get documentation status of specified version of specified package.
-    const(DocsStatus) status(string pkgName, const Version ver) @safe pure nothrow const
-    {
-        import std.exception: assumeWontThrow;
-        return statuses_["%s:%s".format(pkgName, ver.name).assumeWontThrow];
-    }
+    /// Package data as a mutable reference, indexed by package name.
+    Package[string] packageDataMut() @safe pure nothrow @nogc { return packageData_; }
 
     /// Get a YAML node with logs of ddocs.org and subprocesses, including hmod-dub subprocesses.
     Node logYAML()
@@ -551,20 +530,19 @@ int main(string[] args)
 
     // Generate docs and create documentation archives for all packages.
     context.writeHeading("Generating documentation");
-    DocsStatus[string] generateAllDocs()
+
+    void generateAllDocs()
     {
         auto timer = Timer("Generating documentation", context);
-        DocsStatus[string] statuses;
         // Work with one package at a time.
         foreach(name; context.packageData.byKey)
         {
-            generateDocs(name, statuses, config, context);
-            archiveDocs(name, statuses, config, context);
+            generateDocs(name, config, context);
+            archiveDocs(name, config, context);
         }
         context.diagnostics.docTimeS = cast(ulong)timer.ageSeconds;
-        return statuses;
     }
-    if(auto e = collectException({ context.statuses = generateAllDocs(); }()))
+    if(auto e = collectException({ generateAllDocs(); }()))
     {
         return error("Failed generating docs: ", e);
     }
@@ -595,22 +573,29 @@ void writeDocGenerationStatus(const ref Config config, ref Context context)
     void line(S ...)(S args) { context.writefln(args); }
 
     context.writeHeading("Documentation generation status");
-    auto svals = context.statuses.byValue;
+
+    auto svals = context.packageData.byValue.map!((ref p) => p.statuses.byValue).joiner();
+
     line("Successes: %s", svals.count!((ref s) => s.errors.empty));
     line("Failures: %s, of those %s fatal", svals.count!((ref s) => !s.errors.empty),
           svals.count!((ref s) => s.errors.canFind("FATAL")));
 
-    //TODO byKeyValue.array in dmd 2.067
-    auto sKeyVals = context.statuses.byKey.map!(k => tuple(k, cast(DocsStatus)context.statuses[k])).array;
+    // TODO DMD 2.067: byKeyValue to simplify this
+    auto sKeyVals = context.packageData.byKey
+        .map!((name) => tuple(name, context.packageData[name].statuses))
+        .map!((ns) => ns[1].byKey.map!(k => tuple(ns[0] ~ " :" ~ k, cast(DocsStatus)ns[1][k])).array)
+        .join;
 
     auto byHmodRAM = sKeyVals.sort!((a, b) => a[1].hmodRAM > b[1].hmodRAM);
     line("32 worst `hmod` memory usages (kiB): \n%s",
          byHmodRAM.take(32).map!(kv => "  %s: %s\n".format(kv[0], kv[1].hmodRAM)).joiner());
     context.diagnostics.hmodRAMMaxK = byHmodRAM.empty ? 0 : byHmodRAM.front[1].hmodRAM;
     line("\nUnknown errors: %s\n", svals.count!((ref s) => s.errors.canFind("Unknown error")));
-    foreach(name, status; context.statuses) if(!status.errors.empty)
+
+    foreach(pkgName, ref pkg; context.packageData) foreach(name, status; pkg.statuses) 
     {
-        line("%s:", name);
+        if(status.errors.empty) { continue; }
+        line("%s:%s:", pkgName, name);
         foreach(e; status.errors) { context.writeln("    ", e); }
     }
 }
@@ -639,28 +624,23 @@ void removeDubDir(const ref Config config, ref Context context)
  * Params:
  *
  * pkgName  = Name of the packages.
- * statuses = Package generation statuses. Guaranteed to have doc statuses for this
- *              package but may not have statuses for all packages.
  * config   = Config for output directory and various options.
  * context  = Context for package/version information.
  *
  * Throws: `Exception` if an archiving/deletion command fails.
  */
-void archiveDocs(string pkgName, DocsStatus[string] statuses,
-                 const ref Config config, ref Context context)
+void archiveDocs(string pkgName, const ref Config config, ref Context context)
 {
     // If we didn't generate any docs we have nothing to archive either.
     if(config.skipDocs || config.skipArchives) { return; }
     auto timer = Timer("Creating documentation archives for '%s'".format(pkgName), context);
     scope(exit) { context.diagnostics.archiveTimeS += timer.ageSeconds; }
-    foreach(pkgVer; context.packageData[pkgName].versions)
+    const pkg = context.packageData[pkgName];
+    foreach(pkgVer; pkg.versions)
     {
+        auto statuses = pkg.statuses;
         // If we did not generate any docs this time, don't archive anything (unless forced).
-        if(!config.forceArchives &&
-           !statuses["%s:%s".format(pkgName, pkgVer.name)].didGenerateDocs)
-        {
-            continue;
-        }
+        if(!config.forceArchives && !statuses[pkgVer.name].didGenerateDocs) { continue; }
 
         const freeGiB = freeSpaceGiB();
         enforce(freeGiB > config.diskReserveGiB,
@@ -747,7 +727,7 @@ void latestLinks(const ref Config config, ref Context context)
                                       .format(result.status, result.output)));
             }
 
-            auto status = context.status(pkgName, latest);
+            auto status = context.packageData[pkgName].statuses[latest.name];
 
             const to   = config.pkgPath(pkgName, "latest");
             const from = config.pkgPath(pkgName, latest.name);
@@ -864,7 +844,7 @@ void writeHTML(ref const Config config, ref Context context)
     // Generate status (error) pages for package versions where we failed to generate docs.
     foreach(pkgName, pkgData; context.packageData) foreach(ver; pkgData.versions)
     {
-        const status = context.status(pkgName, ver);
+        const status = pkgData.statuses[ver.name];
         if(!status.errors.empty)
         {
             const docIndexPath = config.pkgPath(pkgName, ver.name).buildPath("index.html");
@@ -1051,7 +1031,7 @@ void generateIndexPageRow(R)(ref R dst, string anchor, string pkgName,
 
     void addVersion(const Version ver)
     {
-        auto errors = context.status(pkgName, ver).errors;
+        auto errors = context.packageData[pkgName].statuses[ver.name].errors;
 
         // Must be in sync with the final switch in archiveDocs()
         // (the versions whose documentation is deleted are archive only)
@@ -1111,8 +1091,6 @@ void generateIndexPageRow(R)(ref R dst, string anchor, string pkgName,
  * Params:
  *
  * pkgName  = Name of the package.
- * statuses = Associative array to add doc generation statuses for individual versions
- *            (to keep track of errors for each version). Indexed by "packageName:version".
  * config   = Config for various parameters needed by `hmod-dub`.
  * context  = Context for package version information.
  *
@@ -1121,21 +1099,22 @@ void generateIndexPageRow(R)(ref R dst, string anchor, string pkgName,
  *
  * Throws:  Exception on un-recoverable error (e.g. `hmod-dub` not installed).
  */
-bool generateDocs(string pkgName, ref DocsStatus[string] statuses,
-                  ref const Config config, ref Context context)
+bool generateDocs(string pkgName, ref const Config config, ref Context context)
 {
     assert(config.dubDirectory !is null, "Uninitialized config.dubDirectory");
     enum statusFileName = "hmod-dub-package-status.yaml";
 
     auto versions = context.packageData[pkgName].versions;
     auto repository = context.packageData[pkgName].repository;
-    auto fullVersionNames = versions.map!(v => "%s:%s".format(pkgName, v.name));
 
     // Create empty doc statuses if we're skipping doc generation.
     if(config.skipDocs)
     {
         context.writeln("Skipping doc generation enabled; assuming all docs generated OK");
-        foreach(name; fullVersionNames) { statuses[name] = DocsStatus([]); }
+        foreach(ref ver; versions)
+        {
+            context.packageDataMut[pkgName].statuses[ver.name] = DocsStatus([]);
+        }
         return true;
     }
 
@@ -1160,7 +1139,7 @@ bool generateDocs(string pkgName, ref DocsStatus[string] statuses,
                  "--status-output-path",  statusFileName,
                  "--max-file-size",       config.maxFileSizeK.to!string] ~
                  additionalLinks ~
-                 fullVersionNames.array;
+                 versions.map!(v => "%s:%s".format(pkgName, v.name)).array;
     // Run `hmod-dub`.
     const result = context.runCmd(args);
 
@@ -1172,7 +1151,10 @@ bool generateDocs(string pkgName, ref DocsStatus[string] statuses,
     }
     if(result.status == 1)
     {
-        foreach(name; fullVersionNames) { statuses[name] = DocsStatus(["FATAL"], false); }
+        foreach(ref ver; versions)
+        {
+            context.packageDataMut[pkgName].statuses[ver.name] = DocsStatus(["FATAL"], false);
+        }
         context.writeln("FATALLY FAILED to generate documentation for ", pkgName);
         return false;
     }
@@ -1181,8 +1163,9 @@ bool generateDocs(string pkgName, ref DocsStatus[string] statuses,
     import yaml;
     auto statusNode = Loader(statusFileName).load();
     size_t errorsCount;
-    foreach(name; fullVersionNames)
+    foreach(ver; versions)
     {
+        auto name = "%s:%s".format(pkgName, ver.name);
         string[] errors;
         foreach(string error; statusNode[name]["errors"]) { errors ~= error; }
         const didGenerate = statusNode[name]["didGenerateDocs"].as!bool;
@@ -1191,7 +1174,8 @@ bool generateDocs(string pkgName, ref DocsStatus[string] statuses,
         const hmodRAM = statusNode[name]["memoryHmodK"].as!ulong;
 
         if(!errors.empty) { errorsCount += 1; }
-        statuses[name] = DocsStatus(errors, didGenerate, hmodRAM);
+        context.packageDataMut[pkgName].statuses[ver.name] =
+            DocsStatus(errors, didGenerate, hmodRAM);
     }
     if(errorsCount > 0)
     {
@@ -1314,6 +1298,12 @@ struct Package
     Version[] versions;
     /// Link to the source repository of the package. May be null.
     string repository;
+
+    /** Documentation generation statuses for individual versions of the package.
+     *
+     * Written by `generateDocs()`.
+     */
+    DocsStatus[string] statuses;
 }
 
 /// Documentation generation status (for one version of one package).
@@ -1759,7 +1749,6 @@ double freeSpaceGiB()
                  "Failed to determine free space");
     return (info.f_bsize * info.f_bfree) / 1000_000_000.0;
 }
-
 
 immutable string mainDescription   = import("main-description.md");
 immutable string projectDevelopers = import("project-developers.md");
