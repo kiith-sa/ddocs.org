@@ -787,7 +787,7 @@ struct IndexPage
  */
 IndexPage[] paginate(ref const Config config, ref Context context)
 {
-    auto pkgNames = context.packageData.byKey.array.sort;
+    auto pkgNames = sort(context.packageData.byKey.array);
     IndexPage[] result;
     auto startCharGroups = pkgNames.map!(k => cast(char)k.front).group.array;
 
@@ -959,7 +959,7 @@ void generateIndexPage(R)(ref R dst,
     import dmarkdown;
     scope(exit) { dst.generateDDocsFooter(); }
 
-    auto pkgNames = context.packageData.byKey.array.sort;
+    auto pkgNames = sort(context.packageData.byKey.array);
     auto startChars = pkgNames.map!(k => cast(char)k.front).uniq;
     // Breadcrumbs contain the alphabetic shortcut links.
     dst.generateBreadcrumbs({
@@ -1035,8 +1035,7 @@ void generateIndexPageRow(R)(ref R dst, string anchor, string pkgName,
 
         // Must be in sync with the final switch in archiveDocs()
         // (the versions whose documentation is deleted are archive only)
-        bool archiveOnly = only(VersionType.Obsolete, VersionType.PrereleaseObsolete)
-            .canFind(ver.type);
+        bool archiveOnly = ver.type == VersionType.Obsolete || ver.type == VersionType.PrereleaseObsolete;
         dst.put(archiveOnly ? ` <span `:` <a `);
         if(!errors.empty)          { dst.put(`class="error" `); }
         else final switch(ver.type) with(VersionType)
@@ -1075,7 +1074,7 @@ void generateIndexPageRow(R)(ref R dst, string anchor, string pkgName,
     if(!master.empty) { addVersion(master.front); }
     foreach(ver; pkgVersions) with(VersionType)
     {
-        if(!only(Latest, BranchMaster).canFind(ver.type)) { addVersion(ver); }
+        if(!(ver.type == Latest || ver.type == BranchMaster)) { addVersion(ver); }
     }
     dst.put(`</td>`);
     dst.put(`</tr>`);
@@ -1405,8 +1404,8 @@ void initVersionTypes(Version[] versions)
         auto first = nullVers.front.semver;
         bool sameMinor(ref SemVer v)
         {
-            return v == first ||
-                   !only(VersionPart.MAJOR, VersionPart.MINOR).canFind(v.differAt(first));
+            return v == first || !(v.differAt(first) == VersionPart.MAJOR ||
+                                   v.differAt(first) == VersionPart.MINOR);
         }
         // Versions with same major/minor numbers as "first".
         auto group = nullVers.filter!((ref v) => sameMinor(v.semver));
