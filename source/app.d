@@ -1214,8 +1214,8 @@ Package[string] getPackageData(ref const Config config, ref Context context)
     }
     catch(Exception e)
     {
-        context.writeln("ERROR: Failed to get package list from %s. "
-                        "Maybe the format has changed?: %s ", packagesHtmlPath, e.msg);
+        context.writefln("ERROR: Failed to get package list from %s. "
+                         "Maybe the format has changed?: %s ", packagesHtmlPath, e.msg);
         throw e;
     }
     scope(success) { savePackageList(config, context, packageRows); }
@@ -1459,7 +1459,7 @@ PackageRow[string] parsePackageList(string htmlSource, ref Context context)
     PackageRow[string] result;
     foreach(rowStr; rows.map!(r => r.hit))
     {
-        auto cols = rowStr.matchAll(`<td(?: class="[\w\s-_]+")?>.*?</td>`);
+        auto cols = rowStr.matchAll(`<td(?: title=".*?")?(?: class="[\w\s-_]+")?>.*?</td>`);
         enforceE(cols.walkLength == 4, "Not exactly 4 <td> in a <tr>");
 
         auto nameMatch = cols.front.hit.matchAll(`<a href=".*?">(?P<name>.*?)</a>`);
@@ -1468,7 +1468,7 @@ PackageRow[string] parsePackageList(string htmlSource, ref Context context)
         auto versionMatch = cols.front.hit.matchAll(`<td class="nobreak">(?P<version>.*?)</td>`);
         enforceE(versionMatch.walkLength == 1, "Not exactly 1 version match in a package column");
         cols.popFront();
-        auto dateMatch = cols.front.hit.matchAll(`<td class="nobreak">(?P<date>.*?)</td>`);
+        auto dateMatch = cols.front.hit.matchAll(`<td title=".*?" class="nobreak">(?P<date>.*?)</td>`);
         enforceE(dateMatch.walkLength == 1, "Not exactly 1 date match in a package column");
         cols.popFront();
         auto descriptionMatch = cols.front.hit.matchAll(`<td>(?P<description>.*?)</td>`);
