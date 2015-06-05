@@ -580,10 +580,10 @@ void writeDocGenerationStatus(const ref Config config, ref Context context)
     line("Failures: %s, of those %s fatal", svals.count!((ref s) => !s.errors.empty),
           svals.count!((ref s) => s.errors.canFind("FATAL")));
 
-    // TODO DMD 2.067: byKeyValue to simplify this
-    auto sKeyVals = context.packageData.byKey
-        .map!((name) => tuple(name, context.packageData[name].statuses))
-        .map!((ns) => ns[1].byKey.map!(k => tuple(ns[0] ~ " :" ~ k, cast(DocsStatus)ns[1][k])).array)
+    auto sKeyVals =
+        context.packageData.byKeyValue
+        .map!((kv) => tuple(kv.key, kv.value.statuses))
+        .map!((ns) => ns[1].byKeyValue.map!(kv => tuple(ns[0] ~ " :" ~ kv.key, cast(DocsStatus)kv.value)).array)
         .join;
 
     auto byHmodRAM = sKeyVals.sort!((a, b) => a[1].hmodRAM > b[1].hmodRAM);
@@ -1236,9 +1236,9 @@ Package[string] getPackageData(ref const Config config, ref Context context)
     try foreach(name, row; packageRows)
     {
         string note = "reloaded";
-        // Once we load versions for the package, either from cache or web, determine
+        // After we load versions for the package, either from cache or web, determine
         // version types and print the versions.
-        scope(success)
+        scope(success) if(name in packageData)
         {
             packageData[name].row = row;
             packageData[name].versions.initVersionTypes();
@@ -1258,13 +1258,15 @@ Package[string] getPackageData(ref const Config config, ref Context context)
         packageDataHtmlPath = "http://code.dlang.org/packages/" ~ name;
         string packageHtml;
         import std.net.curl;
-        try { packageHtml = cast(string)get(packageDataHtmlPath); }
+        try 
+        {
+            packageHtml = cast(string)get(packageDataHtmlPath); 
+        }
         catch(CurlException e)
         {
             context.writefln("WARNING: Failed to get %s: %s; Ignoring", packageDataHtmlPath, e.msg);
             continue;
         }
-
         packageData[name] = parsePackageData(packageHtml, name);
     }
     catch(Exception e)
